@@ -1,0 +1,36 @@
+---
+title: 'Gas Saving Detector For Slither'
+date: '2022-09-23'
+lastmod: '2022-09-23'
+tags: ['smart contracts auditing', 'slither', 'solidity']
+draft: true
+summary: "I started to use slither a while ago. One thing I didn't find, are detectors that point out possible gas savings. So I built my own."
+images: []
+authors: ['default']
+layout: PostLayout
+canonicalUrl: https://bonis.tech/blog/slither-gas-saving-detector
+---
+
+When auditing smart contracts at [AuditOne](https://auditone.io/top-auditors), I find it very handy to use
+a static analyzer that can automatically detect vulnerabilities and suggest a fix for them. One of my favorite
+tools is [slither](https://github.com/crytic/slither).
+
+Slither's architecture is built around detectors. A detector is a class that…
+There are - as of today 23.09.2022 - 47 detectors in total. Most of them target actual vulnerabilities. Few of
+them help you write better code. Like pointing out the use of an unstable solidity version, or similarity of
+argument names.
+
+What I couldn't find, was a detector that points out gas saving possibilities. I have encountered in many projects
+lines of code that can be written more gas efficient. One of the most common findings, is developers comparing
+a `uint256 > 0`. Which is technically correct. For example if you want to make sure that the function is receiving
+ether, you can check for `msg.value > 0`.
+What would happen if instead we use `uint256 != 0`? Since a `uint256` ranges anything from 0 to 2^256^ - 1,
+comparing `uint256 != 0` has the same effect, but consumes less gas.
+
+## Todo
+
+[ ] add example
+
+[ ] explain detector
+
+[ ] show tool code (link to repo?)

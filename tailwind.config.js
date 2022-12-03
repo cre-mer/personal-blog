@@ -1,6 +1,19 @@
 const defaultTheme = require('tailwindcss/defaultTheme')
 const colors = require('tailwindcss/colors')
 
+colors.carnation = {
+  50: '#FEEDF0',
+  100: '#FDD9DF',
+  200: '#FBB3BF',
+  300: '#F88C9F',
+  400: '#F6667E',
+  500: '#F43F5E',
+  600: '#ED0E34',
+  700: '#B80B28',
+  800: '#83081D',
+  900: '#4E0411',
+}
+
 module.exports = {
   experimental: {
     optimizeUniversalDefaults: true,
@@ -28,7 +41,7 @@ module.exports = {
         sans: ['InterVariable', ...defaultTheme.fontFamily.sans],
       },
       colors: {
-        primary: colors.teal,
+        primary: colors.carnation,
         gray: colors.neutral,
       },
       typography: (theme) => ({
@@ -63,7 +76,7 @@ module.exports = {
               backgroundColor: theme('colors.gray.800'),
             },
             code: {
-              color: theme('colors.pink.500'),
+              color: theme('colors.primary.400'),
               backgroundColor: theme('colors.gray.100'),
               paddingLeft: '4px',
               paddingRight: '4px',
