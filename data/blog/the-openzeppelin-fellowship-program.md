@@ -1,6 +1,6 @@
 ---
 title: 'Embracing Blockchain Security: My Fellowship Experience with OpenZeppelin'
-date: '2022-07-07'
+date: '2023-07-07'
 tags: ['openzeppelin', 'security', 'research']
 draft: false
 summary: 'My two cents on the OpenZeppelin Fellowship Program.'
@@ -30,7 +30,7 @@ Beyond the incredible learning opportunities, the fellowship program at OpenZepp
 
 My time in the OpenZeppelin fellowship program was transformative. The knowledge, experience, and connections I gained during this immersive journey continue to shape my career as a blockchain security researcher. The program's focus on smart contract security, combined with the guidance from experts, provided an unparalleled opportunity to explore this rapidly evolving field. I am immensely grateful for the fellowship program and OpenZeppelin, as they paved the way for my successful transition into a full-time role within the company.
 
-This opportunity is truly one of a kind! If I have piqued your interest, go ahead and apply [here](https://www.openzeppelin.com/jobs/opening?gh_jid=5670297003&gh_src=e81d79463us).
+This opportunity is truly one of a kind! If I have piqued your interest, learn more [here](https://learn.openzeppelin.com/openzeppelin-fellowship-program-4) apply today!
 
 ## Resources
 
