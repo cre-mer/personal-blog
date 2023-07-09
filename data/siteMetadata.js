@@ -2,11 +2,11 @@ const siteMetadata = {
   title: 'BonisTech',
   author: 'Jonas Merhej',
   headerTitle: 'BonisTech',
-  description: 'I am a blockchain enthusiast and a smart contract auditor. This is my journey',
+  description: '',
   language: 'en-US',
   theme: 'system', // system, dark or light
   siteUrl: 'https://bonis.tech',
-  siteRepo: 'https://github.com/timlrx/tailwind-nextjs-starter-blog',
+  siteRepo: 'https://github.com/cre-mer/personal-blog',
   siteLogo: '/static/images/bt-logo-gradient.png',
   image: '/static/images/me_and_bert.jpg',
   socialBanner: '/static/images/twitter-card.png',
@@ -30,7 +30,7 @@ const siteMetadata = {
   newsletter: {
     // supports mailchimp, buttondown, convertkit, klaviyo, revue, emailoctopus
     // Please add your .env file and modify it according to your selection
-    provider: 'buttondown',
+    provider: '',
   },
   comment: {
     // If you want to use a commenting system other than giscus you have to add it to the
