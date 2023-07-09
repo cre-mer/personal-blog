@@ -8,7 +8,7 @@ summary: 'My two cents on the OpenZeppelin Fellowship Program.'
 
 Joining OpenZeppelin's fellowship program was a game-changer in my path as a blockchain enthusiast. In this blog post, I want to share my amazing experience during the fellowship program, where I dove into the world of blockchain security and solidity development. This program not only deepened my understanding of smart contract security and DeFi but also led me to become a full-time security researcher at OpenZeppelin, thanks to my colleagues' incredible support and guidance.
 
-At the end of this post, I share a list of [[#Resources |resources]] that I used along the way.
+At the end of this post, I share a list of [resources](#resources) that I used along the way.
 
 ## Exploring New Horizons
 
@@ -36,7 +36,7 @@ This opportunity is truly one of a kind! If I have piqued your interest, learn m
 
 1. https://www.notonlyowner.com/learn/intro-security-hacking-smart-contracts-ethereum/ (you can find a list of resources there too!)
 2. https://ethernaut.openzeppelin.com/
-3. https://www.damnvulnerabledefi.xyz/ (I have a [[damnvulnerabledefi-solutions |blog post]] on this)
+3. https://www.damnvulnerabledefi.xyz/ (read my [blog post](/blog/challenges/damnvulnerabledefi-solutions) about it)
 4. https://github.com/paradigmxyz/paradigm-ctf-2021
 5. https://capturetheether.com/challenges/
 6. https://github.com/mattaereal/yet-another-evm-puzzle/
