@@ -18,9 +18,9 @@ During the fellowship program, I had the privilege of diving into a well-designe
 
 ## Guidance from Experts
 
-The fellowship program provided an incredible opportunity to explore the world of blockchain security. The curriculum was thoughtfully designed, covering topics such as common vulnerabilities, past exploits, MEV, scaling, and more. Additionally, we had the chance to explore a topic of personal interest with the guidance of a group of experts.
+The fellowship program revolves around a well-structured curriculum. The curriculum is a set of modules ranging from common vulnerabilities, DeFi concepts, MEV, L2, scaling, etc. Every module is discussed with an expert. Questions are not only allowed but encouraged. In the end, you will get time to research a topic of your choice.
 
-One of the standout aspects of the fellowship program was the mentorship and guidance provided by seasoned experts. These professionals generously shared their wealth of knowledge and experience, empowering us to delve deeper into fascinating topics. Their insights not only fueled our passion for blockchain security but also gave us the confidence to embark on our professional journeys.
+One of the standout aspects of the fellowship program was the mentorship and guidance provided by the experts, who generously shared their wealth of knowledge and experience, empowering us to delve deeper into fascinating topics. Their insights not only fueled our passion for blockchain security but also gave us the confidence to embark on our professional journeys.
 
 ## A Joyful Experience
 
@@ -28,7 +28,7 @@ Beyond the incredible learning opportunities, the fellowship program at OpenZepp
 
 ## Conclusion
 
-My time in the OpenZeppelin fellowship program was transformative. The knowledge, experience, and connections I gained during this immersive journey continue to shape my career as a blockchain security researcher. The program's focus on smart contract security, combined with the guidance from experts, provided an unparalleled opportunity to explore this rapidly evolving field. I am immensely grateful for the fellowship program and OpenZeppelin, as they paved the way for my successful transition into a full-time role within the company.
+My time in the OpenZeppelin fellowship program was transformative. The knowledge, experience, and connections I gained during this immersive journey continue to shape my career as a blockchain security researcher. The program's focus on smart contract security, combined with guidance from experts, provided an unparalleled opportunity to explore this rapidly evolving field. I am immensely grateful for the fellowship program and OpenZeppelin, as they paved the way for my successful transition into a full-time role within the company.
 
 This opportunity is truly one of a kind! If I have piqued your interest, learn more [here](https://learn.openzeppelin.com/openzeppelin-fellowship-program-4) apply today!
 
