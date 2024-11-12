@@ -41,7 +41,7 @@ Allowing standalone functions would streamline the deployment of ZK verifiers an
 
 An imagination of how Solidity can implement a standalone bytes in bytes out function. (👉 [gist](https://gist.github.com/cre-mer/b6cdd9174dcb0d6f3d4ac0f22911090b))
 
-```myVerifier.sol
+```sol:myVerifier.sol
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
@@ -53,7 +53,7 @@ function myVerifier(uint256 magicNumber) pure returns (uint256) {
 
 Note that the compiler does not allow compiling such function, however, I wrote a Yul object that I can compile and deploy. This code compiles to the following deployment calldata: `0x60808060405234601757601c9081601d823930815050f35b600080fdfe6080806040526020361015601257600080fd5b6020906000358152f3`
 
-```myVerifier.yul
+```sol:myVerifier.yul
 object "bytes_in_bytes_out" {
     // function constructor
     code {
@@ -89,7 +89,7 @@ object "bytes_in_bytes_out" {
 
 Now we can call the function from a contract like so:
 
-```L1Verifier.sol
+```sol:L1Verifier.sol
 import { myVerifier } from "./myVerifier.sol";
 
 contract L1Verifier {
