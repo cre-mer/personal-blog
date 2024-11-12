@@ -1,0 +1,113 @@
+---
+title: Exploring Stateless Functions in Solidity
+date: '2024-11-12'
+lastmod: '2024-11-12'
+tags: ['solidity']
+draft: false
+summary: "Standalone, stateless functions in Solidity could optimize gas costs and modularity, particularly for ZK verifiers and cryptographic computations."
+images: []
+authors: ['Jonas Merhej']
+layout: PostLayout
+canonicalUrl: https://bonis.tech/blog/stateless-solidity-functions
+---
+
+As the blockchain ecosystem evolves, we continually explore new ways to optimize smart contract design, often with a strong focus on gas efficiency and minimizing state dependencies. Solidity is inherently object-oriented, with the absence of support for standalone, stateless functions — functions that operate independently, without the need for the enforced object-oriented structures.
+
+## Why Solidity Doesn't Support Standalone Functions
+
+Solidity’s object-oriented design dictates that functions must exist within a contract or library. This structure is advantageous in scenarios that involve complex state manipulation, but it limits developers who need highly optimized, stateless functions for tasks such as cryptographic computations, where state variables and object-oriented design may not be necessary.
+
+Some smart contract languages, like [Stylus](https://docs.arbitrum.io/stylus-by-example/bytes_in_bytes_out), allow "bytes in, bytes out" functions to operate as standalone, stateless functions. These functions process input data, produce an output, and return a result directly — ideal for operations that don’t need to retain state between calls. Stylus documentation provides an example use case:
+
+> If your smart contract just has one primary function, like computing a cryptographic hash, this can be a great model because it…acts like a pure function or Unix-style app.
+
+In Solidity, however, this structure is not yet possible. Let’s look at a few reasons why introducing standalone functions in Solidity could benefit developers.
+
+## Use Case: ZK Verifiers
+
+One potential use case for standalone functions is Zero-Knowledge (ZK) verification. A ZK verifier is a function that checks the validity of a proof without revealing the underlying information.
+
+Consider a ZK verifier function designed to check the balance of an account on a different layer, such as L2, from the current layer (L1). This function would ideally operate independently as a pure function, taking input in the form of a proof and returning a verification result (true or false). It doesn’t require access to a broader contract state, making it an ideal candidate for a standalone deployment.
+
+For instance, suppose we wanted to verify a storage value or balance of an account from Layer 2 (L2) on Layer 1 (L1). The logic could be encapsulated in a function that accepts input bytes (proof data) and returns a boolean indicating whether the verification was successful. This setup ensures that the function remains stateless, focusing only on verification logic.
+
+## Benefits of Standalone Stateless Functions
+
+Allowing standalone functions would streamline the deployment of ZK verifiers and similar utilities by reducing overhead associated with the contract model. Here are some of the specific advantages:
+
+1. **Gas Efficiency**: When we only care about a single function’s logic, deploying it in isolation allows us to skip extra steps like signature hash matching and contract state initialization. In a scenario where gas optimization is crucial, the reduction in processing overhead can lead to tangible savings.
+
+2. **Simplicity in Design**: For specific use cases, such as cryptographic hash calculations or ZK proofs, the complexity of a full contract might be unnecessary. A simpler function model would make these utilities easier to design, test, and deploy.
+
+3. **Modularization and Reusability**: Standalone functions allow for reusable, modularized code. Developers could deploy standalone verifier functions as libraries, reducing the need to recompile similar verification logic across multiple contracts.
+
+### Example Design
+
+An imagination of how Solidity can implement a standalone bytes in bytes out function. (👉 [gist](https://gist.github.com/cre-mer/b6cdd9174dcb0d6f3d4ac0f22911090b))
+
+```myVerifier.sol
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.20;
+
+// @dev Standalone myVerifier function written in Solidity
+function myVerifier(uint256 magicNumber) pure returns (uint256) {
+    return magicNumber;
+}
+```
+
+Note that the compiler does not allow compiling such function, however, I wrote a Yul object that I can compile and deploy. This code compiles to the following deployment calldata: `0x60808060405234601757601c9081601d823930815050f35b600080fdfe6080806040526020361015601257600080fd5b6020906000358152f3`
+
+```myVerifier.yul
+object "bytes_in_bytes_out" {
+    // function constructor
+    code {
+        {
+            let _1 := memoryguard(0x80)
+            mstore(64, _1)
+            if callvalue() { revert(0, 0) }
+            let _2 := datasize("myVerifier")
+            codecopy(_1, dataoffset("myVerifier"), _2)
+            setimmutable(_1, "funcrary_deploy_address", address())
+            return(_1, _2)
+        }
+    }
+    // the actual function object
+    object "myVerifier" {
+        code {
+            // take in a uint256 and return it
+            let _1 := memoryguard(0x80)
+            mstore(64, _1)
+            // make sure that the calldatasize is 32 bytes, i.e., ensure we passed a valid uint256
+            if iszero(lt(calldatasize(), 32)) {
+                // load calldata from pos 0
+                mstore(_1, calldataload(0))
+                // return 32 bytes from memory at 0x80
+                return(_1, 32)
+            }
+            // revert if calldata is invalid
+            revert(0,0)
+        }
+    }
+}
+```
+
+Now we can call the function from a contract like so:
+
+```L1Verifier.sol
+import { myVerifier } from "./myVerifier.sol";
+
+contract L1Verifier {
+    myVerifier _myVerifier;
+
+    constructor(myVerifier myVerifier_) {
+        _myVerifier = myVerifier_;
+    }
+    
+    // @dev returns 42
+    function isValidProof() external returns(uint256) {
+        return _myVerifier(42);
+    }
+}
+```
+
+**Disclaimer:** This article is not a finalized design proposal but rather an exploration of what might be possible if Solidity’s function model evolved. I look forward to seeing where these ideas lead in the Solidity and broader blockchain development communities.
