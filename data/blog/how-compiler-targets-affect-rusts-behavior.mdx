@@ -1,0 +1,301 @@
+---
+title: How Compiler Targets Affect Rust's Behavior
+date: '2025-09-22'
+tags: ['rust', 'security']
+draft: false
+summary: 'An overview of a buffer overflow and its behavior on different targets.'
+canonicalUrl: https://bonis.tech/blog/how-compiler-targets-affect-rusts-behavior
+---
+
+_Credits: This blog was inspired by a lesson given by [Daniel Cumming](https://runtimeverification.com/team#daniel-cumming)._
+
+Rust is renowned for its compile-time checks that largely eliminate common memory errors. However, the
+`unsafe` keyword offers an escape hatch, allowing developers to perform low-level operations not subject to
+Rust's usual safety guarantees. Unsafe blocks allow you to do the following five actions in `unsafe` Rust
+that you can’t in safe Rust:
+
+- Dereference a raw pointer
+- Call an `unsafe` function or method
+- Access or modify a mutable static variable
+- Implement an `unsafe` trait
+- Access fields of a union
+
+This power comes with significant responsibility: when `unsafe` is used, the developer is essentially telling
+what you're doing" can be surprisingly complex due to undefined behavior, as exemplified by the classic "buffer overflow".
+
+## What is a Buffer Overflow?
+
+A buffer overflow occurs when a program attempts to write data beyond the allocated boundaries of a
+fixed-size memory buffer. This can lead to overwriting adjacent memory locations, potentially corrupting
+other data or even program instructions. The consequences are often unpredictable, ranging from program
+crashes to subtle, hard-to-trace bugs, or even enabling malicious code execution.
+
+Consider this simplified example demonstrating a buffer overflow on the stack:
+
+```rust
+fn main() {
+    let mut buffer = [0u8; 5]; // 5-byte buffer on the stack
+    let not_in_buffer = 56789; // Another variable on the stack
+
+    unsafe {
+        let ptr = buffer.as_mut_ptr();
+
+        // 🚨 UB: Writing 6 bytes into a 5-byte buffer.
+        for i in 0..6 {
+            *ptr.add(i) = i as u8;
+        }
+    }
+
+    println!("buffer: {:?}", buffer);
+    // Will `not_in_buffer` still be 56789?
+    println!("not_in_buffer: {}", not_in_buffer);
+}
+```
+
+_Figure 1: Example Rust program that intentionally overruns a 5-byte stack buffer to illustrate undefined
+behavior (writes 6 bytes). The following figures walk through what the writes may corrupt._
+
+In this code, a 5-byte `buffer` and an `i32` variable `not_in_buffer` are declared. The for loop attempts to
+write 6 bytes (from 0 to 5) into the 5-byte buffer.
+
+First let's get more information about our kernel architecture:
+
+```bash
+$ uname -sm
+Linux aarch64
+```
+
+_Figure 2: Kernel architecture output used to show the current target (machine/arch). This affects ABI,
+alignment and endianness._
+
+We're on a 64-bit system running Linux. Due to memory alignment and padding on this specific target,
+the `not_in_buffer` variable might not be immediately adjacent to the buffer in memory. This means the overflow
+might write into padding bytes or other seemingly "empty" spaces, leading to the program appearing to function
+correctly even though an overflow has occurred. The printed value of `not_in_buffer` could remain unchanged.
+
+Currently, this is how the memory looks like before executing the loop:
+
+```
+—————————————————————————————————————————————————————————————————————————
+| 1 byte | 1 byte | 1 byte | 1 byte | 1 byte |--------|--------|--------|
+—————————————————————————————————————————————————————————————————————————
+|              4 bytes              |--------|--------|--------|--------|
+—————————————————————————————————————————————————————————————————————————
+```
+
+_Figure 3: Visual representation of the stack layout before the loop runs — a 5-byte `buffer` followed by
+`not_in_buffer` (4 bytes) separated by padding on this 64-bit target._
+
+Let's compile an run the program using `rustc` and inspect the results:
+
+```bash
+$ rustc main.rs
+$ ./main
+buffer: [0, 1, 2, 3, 4]
+not_in_buffer: 56789
+```
+
+_Figure 4: Program output showing that, on this layout, the initial overflow did not visibly alter
+`not_in_buffer` (value remains 56789)._
+
+As expected, due to the memory layout, we didn't see any overflow in the result. However, this does not mean that an
+overflow didn't happen. The memory layout now looks as follow:
+
+```
+—————————————————————————————————————————————————————————————————————————
+| 1 byte | 1 byte | 1 byte | 1 byte | 1 byte | 1 byte |--------|--------|
+—————————————————————————————————————————————————————————————————————————
+|              4 bytes              |--------|--------|--------|--------|
+—————————————————————————————————————————————————————————————————————————
+```
+
+_Figure 5: Memory layout after the first overflow writes (6 bytes); the sixth byte landed in the
+padding region on this 64-bit target._
+
+However, if the loop's upper bound is increased (e.g., to 9 or higher), the impact becomes visible. The
+overflow can then reach and corrupt the `not_in_buffer` variable, changing its value in an unpredictable
+way. Let's write into 9 bytes, i.e., 4 bytes passed the `buffer`:
+
+```diff
+-    for i in 0..6 {
++    for i in 0..9 {
+        *ptr.add(i) = i as u8;
+    }
+```
+
+_Figure 6: Diff showing the loop bound increased from `0..6` to `0..9` so the writes reach into adjacent
+memory and will eventually overwrite `not_in_buffer`._
+
+If we compile and run the program again, we get:
+
+```bash
+$ rustc main.rs
+$ ./main
+buffer: [0, 1, 2, 3, 4]
+not_in_buffer: 56584
+```
+
+_Figure 7: Program output after increasing the loop bound; `not_in_buffer` has been corrupted and now
+prints `56584`._
+
+Our value `not_in_buffer` changed from 56789 to 56584. What happened here?
+
+```markdown
+| Loop i | Memory Offset from buffer Start | Action                         | Value Written (Hex) | Memory Contents of not_in_buffer |
+| ------ | ------------------------------- | ------------------------------ | ------------------- | -------------------------------- |
+| –      | [ 00, 00, 00, 00, 00 ]          | –                              | –                   | [ D5, DD, 00, 00 ]               |
+| 0–4    | [ 00, 01, 02, 03, 04 ]          | Writes to `buffer`             | 00 to 04            | [ D5, DD, 00, 00 ]               |
+| 5–7    | +5 to +7                        | Writes to padding              | 05 to 07            | [ D5, DD, 00, 00 ]               |
+| 8      | +8                              | Overflows into `not_in_buffer` | 08                  | [ 08, DD, 00, 00 ]               |
+```
+
+_Figure 8: Table summarizing where each write lands (buffer, padding, then `not_in_buffer`) for the
+9-byte example shown above._
+
+Step-by-step explanation:
+
+1. Initial state: `not_in_buffer` is stored little-endian as the byte sequence `[D5, DD, 00, 00]` (lowest
+   address first). Interpreted as a 32-bit little-endian integer this is 0x00_00_DD_D5 = 56789 decimal.
+
+2. Loop iterations 0–4 write the bytes `0x00` through `0x04` into the five `buffer` slots. These writes stay
+   inside the buffer and do not touch `not_in_buffer`.
+
+3. Iterations 5–7 write into the padding area between `buffer` and `not_in_buffer`. Because of the platform's
+   alignment/padding the first few overflowed bytes land in padding, so `not_in_buffer` is still untouched.
+
+4. Iteration 8 writes the single byte `0x08` into the first byte of `not_in_buffer` (the least-significant
+   byte) because this architecture stores the least-significant byte at the lowest address (little-endian).
+   The low-order byte changed from `0xD5` (213) to `0x08` (8), while the other three bytes remained `[DD, 00, 00]`.
+
+Byte-level change (hex):
+
+- Before: `[D5, DD, 00, 00]` → `0x00_00_DD_D5 = 56789`
+- After: `[08, DD, 00, 00]` → `0x00_00_DD_08 = 56584`
+
+_**Note:** this behavior depends on endianness (little-endian here). On a big-endian system the first byte written
+after the buffer would be the most-significant byte of the integer and would produce a very different numeric
+result._
+
+**Exercise:** Try to increase the loop to override 10, 12 or 20 bytes, and observe what happens.
+
+## So Why Is This Considered Undefined?
+
+At this point, you can argue that this is not undefined behavior, but rather deterministic unwanted behavior. And you're right.
+Let's try this example once more on a different target then.
+
+For that we're gonna use the [`i386/debian:bullseye` Docker image](https://hub.docker.com/r/i386/debian/). And we're going to execute the
+above steps again.
+
+_**Note:** You'll have to [install Rust](https://www.rust-lang.org/tools/install) again when running this container if you want to follow along._
+
+Again, we're going to get our kernel's architecture:
+
+```bash
+root@6619abc9a027:/# uname -sm
+Linux i686
+```
+
+_Figure 9: Kernel architecture output used to show the current target (machine/arch). This affects ABI,
+alignment and endianness._
+
+We're again running a Linux distribution, however this time it's on a 32-bits architecture. Pause and think what should happen?
+How does the memory layout look like now?
+
+A good guess would be:
+
+```
+—————————————————————————————————————
+| 1 byte | 1 byte | 1 byte | 1 byte |
+—————————————————————————————————————
+| 1 byte |--------|--------|--------| <--- expected padding
+—————————————————————————————————————
+```
+
+_Figure 10: Expected stack layout before the loop runs on a 32-bit target with padding._
+
+If we compile and run the program again overflowing the buffer by 1 byte, we'd expect nothing to happen:
+
+```bash
+root@6619abc9a027:/# rustc main.rs
+root@6619abc9a027:/# ./main
+buffer: [0, 1, 2, 3, 4]
+not_in_buffer: 56581
+```
+
+_Figure 11: Program output for the 32-bit target after a 6-byte write, showing that not_in_buffer was corrupted and now prints 56581._
+
+Why did we overflow now? This is because the target we're compiling for asks for memory to be as compact as possible, optimizing for memory
+size usage instead of performance.
+
+```
+————————————————————————————————————————————————————————
+|    1 byte   |    1 byte   |    1 byte   |    1 byte   |
+————————————————————————————————————————————————————————
+| 1 byte |        first 3 bytes of not_in_buffer        | <--- actually no padding
+————————————————————————————————————————————————————————
+| last byte of not_in_buffer |---------|-------|--------|
+————————————————————————————————————————————————————————
+```
+
+_Figure 12: A visualization of the stack layout on a 32-bit architecture without padding between the
+5-byte buffer and the not_in_buffer variable._
+
+Below is the same experiment, but on a 32-bit target with no padding between `buffer` and `not_in_buffer`.
+The loop writes 6 bytes (0..5). Because there's no padding, the 6th write (i = 5) immediately overwrites the
+first (least-significant) byte of `not_in_buffer`.
+
+```markdown
+| Loop i | Stack Offset from buffer Start | Action                         | Value Written (Hex) | Stack Contents of not_in_buffer |
+| ------ | ------------------------------ | ------------------------------ | ------------------- | ------------------------------- |
+| –      | [ 00, 00, 00, 00, 00 ]         | –                              | –                   | [ D5, DD, 00, 00 ]              |
+| 0–4    | [ 00, 01, 02, 03, 04 ]         | Writes to `buffer`             | 00 to 04            | [ D5, DD, 00, 00 ]              |
+| 5      | +5                             | Overflows into `not_in_buffer` | 05                  | [ 05, DD, 00, 00 ]              |
+```
+
+_Figure 13: Table for the 32-bit, no-padding example (6-byte write) showing the write that immediately overwrites the LSB of not_in_buffer._
+
+Step-by-step explanation (32-bit, no padding):
+
+1. Initial state: `not_in_buffer` is little-endian `[D5, DD, 00, 00]` (0x00_00_DD_D5 = 56789 decimal).
+
+2. Loop iterations 0–4 write `0x00`..`0x04` into the five `buffer` slots — still inside the buffer.
+
+3. Iteration 5 (the 6th write) lands immediately on the first byte of `not_in_buffer` because there is no
+   padding: it writes `0x05` into the least-significant byte.
+
+4. Byte-level change (hex):
+
+- Before: `[D5, DD, 00, 00]` → `0x00_00_DD_D5 = 56789`
+- After: `[05, DD, 00, 00]` → `0x00_00_DD_05 = 56581`
+
+5. Numeric arithmetic: the LSB changed from 0xD5 (213) to 0x05 (5). The integer decreases by 208 (213 − 5), so
+   56789 − 208 = 56581.
+
+This concrete example demonstrates why even a single overwritten byte in an `unsafe` block can silently
+corrupt program state on architectures without padding.
+
+This "undefined behavior" is not necessarily random in the sense of cryptographic randomness. It is
+undefined because the C++ standard (which Rust's low-level memory model often aligns with for these
+operations) does not specify what should happen. The actual outcome depends entirely on the specific
+compiler, operating system, and hardware architecture. Running the same program multiple times on the same
+machine might yield consistent results, leading to a false sense of security, but deploying it on a
+different environment could expose the hidden bug.
+
+Why Care About Unsafe Rust and Undefined Behavior?
+
+While Rust's robust type system and ownership rules generally prevent these issues in "safe" Rust,
+understanding `unsafe` is vital for several reasons:
+
+- Low-Level Interoperability: When interacting with C libraries, operating system calls, or directly
+  managing hardware, `unsafe` Rust is often necessary.
+- Performance Optimization: In highly performance-critical scenarios, `unsafe` allows for manual memory
+  management or direct manipulation that might be more efficient than what safe Rust abstractions provide.
+- Auditing and Security: For security auditors, identifying and meticulously reviewing `unsafe` blocks is
+  paramount. These sections are the most likely places to find vulnerabilities like buffer overflows,
+  use-after-free errors, or data races. Tools like MIRI can help in statically analyzing `unsafe` code for
+  such issues.
+
+The buffer overflow example vividly illustrates that even seemingly minor excursions beyond memory
+boundaries in `unsafe` blocks can have unpredictable and potentially severe consequences. It reinforces the
+importance of using `unsafe` judiciously, with thorough understanding and rigorous testing, ensuring that
+any assumptions made about memory layout and behavior hold true across all target environments.
