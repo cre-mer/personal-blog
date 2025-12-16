@@ -2,7 +2,7 @@
 title: Damn Vulnerable DeFi solutions
 date: '2022-12-02'
 tags: ['challenges', 'solidity', 'defi', 'security']
-draft: false
+draft: true
 summary: 'A complete guide on solving Damn Vulnerable DeFi with detailed explanations for each challenge.'
 ---
 
