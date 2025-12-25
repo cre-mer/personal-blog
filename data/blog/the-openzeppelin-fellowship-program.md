@@ -2,7 +2,7 @@
 title: 'Embracing Blockchain Security: My Fellowship Experience with OpenZeppelin'
 date: '2023-07-07'
 tags: ['openzeppelin', 'security', 'research']
-draft: false
+draft: true
 summary: 'My two cents on the OpenZeppelin Fellowship Program.'
 ---
 
