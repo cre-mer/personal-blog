@@ -146,6 +146,18 @@ npm install
 
 ## Development
 
+### Devcontainer
+
+Open this repository in VS Code with the Dev Containers extension and run
+**Dev Containers: Reopen in Container**, or open it in GitHub Codespaces.
+The container provides Node.js 24, installs dependencies with `npm ci`, and installs
+[Codex CLI](https://developers.openai.com/codex/cli/).
+
+Once setup finishes, run `npm run dev`; port 3000 is forwarded automatically.
+Run `codex` in the container terminal and follow the sign-in prompts to use Codex.
+
+### Local development
+
 First, run the development server:
 
 ```bash
